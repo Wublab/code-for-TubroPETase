@@ -15,7 +15,7 @@ class SeqDataset(torch.utils.data.Dataset):
         self.sequences = self.read_fasta(fasta_file)
         self.read_vocab(vocab_file)
         super(SeqDataset, self).__init__()
-    
+
     def __len__(self):
         return len(self.sequences)
 
@@ -57,84 +57,75 @@ class SeqDataset(torch.utils.data.Dataset):
         inp = self.tokenizer(seq)
         return inp
 
-dataset = SeqDataset('../clean_90.fasta', 'vocab.txt')
 
-validation_split = .1
-shuffle_dataset = True
-random_seed= 42
+if __name__ == '__main__':
+    dataset = SeqDataset('../clean_90.fasta', 'vocab.txt')
 
-batch_size = 32
+    validation_split = .1
+    shuffle_dataset = True
+    random_seed = 42
 
-dataset_size = len(dataset)
-indices = list(range(dataset_size))
-split = int(np.floor(validation_split * dataset_size))
-if shuffle_dataset :
-    np.random.seed(random_seed)
-    np.random.shuffle(indices)
-train_indices, val_indices = indices[split:], indices[:split]
+    batch_size = 32
 
-# Creating PT data samplers and loaders:
-train_sampler = SubsetRandomSampler(train_indices)
-valid_sampler = SubsetRandomSampler(val_indices)
+    dataset_size = len(dataset)
+    indices = list(range(dataset_size))
+    split = int(np.floor(validation_split * dataset_size))
+    if shuffle_dataset:
+        np.random.seed(random_seed)
+        np.random.shuffle(indices)
+    train_indices, val_indices = indices[split:], indices[:split]
 
-train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, 
-                                           sampler=train_sampler)
-validation_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
-                                                sampler=valid_sampler)
+    # Creating PT data samplers and loaders:
+    train_sampler = SubsetRandomSampler(train_indices)
+    valid_sampler = SubsetRandomSampler(val_indices)
 
-device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
+    train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
+                                               sampler=train_sampler)
+    validation_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,
+                                                    sampler=valid_sampler)
 
+    device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
 
-transformer = TransformerWrapper(
-    num_tokens = 25,
-    max_seq_len = 512,
-    attn_layers = Encoder(
-        dim = 512,
-        depth = 3,
-        heads = 8
+    transformer = TransformerWrapper(
+        num_tokens=25,
+        max_seq_len=512,
+        attn_layers=Encoder(
+            dim=512,
+            depth=3,
+            heads=8
+        )
     )
-)
 
-trainer = MLM(
-    transformer,
-    mask_token_id = 4,          # the token id reserved for masking
-    pad_token_id = 0,           # the token id for padding
-    mask_prob = 0.15,           # masking probability for masked language modeling
-    replace_prob = 0.90,        # ~10% probability that token will not be masked, but included in loss, as detailed in the epaper
-    mask_ignore_token_ids = [2,3]  # other tokens to exclude from masking, include the [cls] and [sep] here
-).to(device)
+    trainer = MLM(
+        transformer,
+        mask_token_id=4,          # the token id reserved for masking
+        pad_token_id=0,           # the token id for padding
+        mask_prob=0.15,           # masking probability for masked language modeling
+        # ~10% probability that token will not be masked, but included in loss, as detailed in the epaper
+        replace_prob=0.90,
+        # other tokens to exclude from masking, include the [cls] and [sep] here
+        mask_ignore_token_ids=[2, 3]
+    ).to(device)
 
-# optimizer
+    opt = Adam(trainer.parameters(), lr=3e-4)
 
-opt = Adam(trainer.parameters(), lr=3e-4)
+    total_epoch = 100
 
-# one training step (do this for many steps in a for loop, getting new `data` each time)
+    def eval(test_loader):
+        val_loss = []
+        with torch.no_grad():
+            for test_data in test_loader:
+                val_loss.append(trainer(test_data.to(device)).cpu())
+        return np.mean(val_loss)
 
-# data = torch.randint(0, 24, (8, 1024)).cuda()
-
-total_epoch = 100
-
-def eval(test_loader):
-    val_loss = []
-    with torch.no_grad():
-        for test_data in test_loader:
-            val_loss.append(trainer(test_data.to(device)).cpu())
-    return np.mean(val_loss)
-
-
-for epoch in range(total_epoch):
-    with tqdm(train_loader, unit='epoch') as tepoch:
-        val_loss = eval(validation_loader)
-        for data in tepoch:
-            tepoch.set_description(f"Epoch {epoch}")
-            loss = trainer(data.to(device))
-            loss.backward()
-            opt.step()
-            opt.zero_grad()
-            # print(f"train loss: {loss}")
-            # train_loss[i] = loss
-            tepoch.set_postfix(loss=loss.item(),val_loss=val_loss)
-        # check_heatmap()
-        torch.save(transformer, f'./cubert_{epoch}.pt')
-        
-
+    for epoch in range(total_epoch):
+        with tqdm(train_loader, unit='epoch') as tepoch:
+            val_loss = eval(validation_loader)
+            for data in tepoch:
+                tepoch.set_description(f"Epoch {epoch}")
+                loss = trainer(data.to(device))
+                loss.backward()
+                opt.step()
+                opt.zero_grad()
+                tepoch.set_postfix(loss=loss.item(), val_loss=val_loss)
+            torch.save(transformer, f'./cubert_{epoch}.pt')
