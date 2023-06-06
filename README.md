@@ -2,7 +2,7 @@
 
 code for TubroPETase paper
 
-Cui LY et al. Deep learning-aided redesign of a hydrolase for near 100% PET depolymerization under industrially relevant conditions. 2023. In submission.
+Cui YL et al. Deep learning-aided redesign of a hydrolase for near 100% PET depolymerization under industrially relevant conditions. 2023. In submission.
 
 ## Install
 
