@@ -1,6 +1,6 @@
-# code-for-TubroPETase
+# code-for-TurboPETase
 
-code for TubroPETase paper
+code for TurboPETase paper
 
 Cui YL et al. Deep learning-aided redesign of a hydrolase for near 100% PET depolymerization under industrially relevant conditions. 2023. In submission.
 
@@ -16,16 +16,19 @@ pip install numpy pandas scipy seaborn matplotlib
 ```
 
 ## Inference
+
 see `mlm_data_analysis.ipynb`.
 
 ## Train
+
 ```bash
 python mlm.py
 ```
 
 ## Note
+
 The `*_new.pt` files have been updated to fit the newer version of `x-transformers`, BUT THEY HAVE NOT BEEN TESTED!  
 WE STRONGLY RECOMMEND USING THE NOTEBOOK FOR REPRODUCING PURPOSES!
 
 For scientific problems, please refer to wub_at_im.ac.cn or cuiyl_at_im.ac.cn (replace the _at_ with @ before sending the email).  
-For code issues, please open a new issue.
+For code problems, please open a new issue.
